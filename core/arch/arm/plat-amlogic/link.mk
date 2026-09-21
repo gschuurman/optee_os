@@ -15,3 +15,12 @@ $(link-out-dir)/bl32.img: $(link-out-dir)/tee-pager_v2.bin
 			   --res_mem_start 0x5300000 --res_mem_size 0x1000000 \
 			   --sec_mem_start 0x5300000 --sec_mem_size 0xc00000
 endif
+
+ifneq (,$(filter $(PLATFORM_FLAVOR),g12b))
+all: $(link-out-dir)/bl32.img
+cleanfiles += $(link-out-dir)/bl32.img
+$(link-out-dir)/bl32.img: $(link-out-dir)/tee-raw.bin
+	$(aml_bin2img_cmd) --source $< --dest $@ --entry 0x5300000 \
+			   --res_mem_start 0x5300000 --res_mem_size 0x1000000 \
+			   --sec_mem_start 0x5300000 --sec_mem_size 0xc00000
+endif

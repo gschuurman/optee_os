@@ -23,6 +23,13 @@ $(call force,CFG_CORE_CLUSTER_SHIFT,1)
 # again even if dynamic-shm negotiation ever fails for some other reason.
 # See device/khadas/vim3/handoff-keymint-optee.md.
 $(call force,CFG_CORE_RESERVED_SHM,n)
+# Real hardware RNG (rng.c, reads the same MMIO register Linux's meson-rng driver reads from
+# normal world). A hang seen here earlier (2026-09-22) was misdiagnosed as a missing-clock-gate bus
+# stall in rng.c; re-examining Linux's own meson-rng.c shows its clock is
+# devm_clk_get_optional_enabled() -- optional -- so this chip variant has no gating dependency. The
+# real cause was huk.c (a since-fixed unrelated RPC hang in early boot, confounded into every test
+# that also had CFG_WITH_SOFTWARE_PRNG=n set); with that fixed, this reads clean on hardware.
+$(call force,CFG_WITH_SOFTWARE_PRNG,n)
 else
 $(call force,CFG_TEE_CORE_NB_CORE,4)
 endif

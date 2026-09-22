@@ -6,14 +6,36 @@ ifeq ($(PLATFORM_FLAVOR),g12b)
 # A311D: 2x Cortex-A53 (MPIDR 0x000-0x001) + 4x Cortex-A73 (0x100-0x103)
 $(call force,CFG_TEE_CORE_NB_CORE,6)
 $(call force,CFG_CORE_CLUSTER_SHIFT,1)
+# CFG_SHMEM_START/SIZE below (0x05000000, the static SHM pool) sits INSIDE a range BL2 hardware-secures --
+# confirmed 2026-09-22 by decompiling bl2.bin: it programs the Amlogic AO secure-region protect registers
+# with base=0x05000000 size=0x300000, and separately base=0x05300000 (CFG_TZDRAM_START) size=0x2000000,
+# matching the DTS's own secmon@5000000 (3MiB) + secmon@5300000 (32MiB) reservations exactly. Two real,
+# reproducible SError crashes came from normal-world writes into that first window (once via genalloc's
+# own memset, once later via tee-supplicant's read() into an mmap'd buffer there -- SError is async/
+# imprecise, so the fault can surface at an unrelated later instruction, which is why a preceding small
+# allocation looked "fine"). This is not a sizing problem: no size in that range is genuinely safe.
+#
+# Real fix: CFG_CORE_DYN_SHM (default y) never actually took effect here, because OP-TEE only advertises
+# OPTEE_SMC_SEC_CAP_DYNAMIC_SHM when core_mmu_nsec_ddr_is_defined() is true (core/arch/arm/tee/
+# entry_fast.c), which requires the platform to register_ddr() its non-secure DDR ranges -- our g12b port
+# never did. Now does, in main.c (explicitly excluding [0x05000000, 0x07300000), the full hardware-secure
+# span). CFG_CORE_RESERVED_SHM is force-disabled below so Linux can never fall back to the static pool
+# again even if dynamic-shm negotiation ever fails for some other reason.
+# See device/khadas/vim3/handoff-keymint-optee.md.
+$(call force,CFG_CORE_RESERVED_SHM,n)
 else
 $(call force,CFG_TEE_CORE_NB_CORE,4)
 endif
 
 CFG_TZDRAM_START ?= 0x05300000
 CFG_TZDRAM_SIZE ?= 0x00c00000
+# CFG_SHMEM_START/SIZE intentionally NOT set for g12b: CFG_CORE_RESERVED_SHM=n above means they're unused,
+# and the address range they'd default to is the proven-hardware-secure one described above. Do not set
+# these for this platform without new hardware evidence that a specific range is genuinely safe.
+ifneq ($(PLATFORM_FLAVOR),g12b)
 CFG_SHMEM_START ?= 0x05000000
 CFG_SHMEM_SIZE ?= 0x00100000
+endif
 
 $(call force,CFG_SECURE_TIME_SOURCE_CNTPCT,y)
 $(call force,CFG_WITH_ARM_TRUSTED_FW,y)

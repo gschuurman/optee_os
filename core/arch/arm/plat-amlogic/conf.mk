@@ -34,8 +34,14 @@ else
 $(call force,CFG_TEE_CORE_NB_CORE,4)
 endif
 
+# CFG_TZDRAM_SIZE was 0x00c00000 (12 MiB) but BL2 hardware-protects the full 32 MiB window at
+# CFG_TZDRAM_START (confirmed by decompiling bl2.bin, see the comment above on the AO secure-region
+# protect registers) -- so 20 MiB of already-reserved, no-map secure DRAM sat unused. Use all of it:
+# with CFG_WITH_PAGER=n TAs are fully resident, and the KeyMint TA alone is ~1.5 MiB plus a 4 MiB heap.
+# No new hardware region or TF-A/BL2 change needed. (This was headroom, NOT the fix for the 2026-09-22
+# KeyMint TEE_ERROR_OUT_OF_MEMORY -- that was a dangling TEEC_Context pointer in the HAL.)
 CFG_TZDRAM_START ?= 0x05300000
-CFG_TZDRAM_SIZE ?= 0x00c00000
+CFG_TZDRAM_SIZE ?= 0x02000000
 # CFG_SHMEM_START/SIZE intentionally NOT set for g12b: CFG_CORE_RESERVED_SHM=n above means they're unused,
 # and the address range they'd default to is the proven-hardware-secure one described above. Do not set
 # these for this platform without new hardware evidence that a specific range is genuinely safe.

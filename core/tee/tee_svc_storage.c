@@ -73,9 +73,16 @@ static TEE_Result tee_svc_close_enum(struct user_ta_ctx *utc,
 	return TEE_SUCCESS;
 }
 
+/*
+ * g12b-vim3: an object that fails to read is reported (TEE_ERROR_CORRUPT_OBJECT) but no longer
+ * deleted. Without rollback protection (no RPMB, no monotonic counter) a transient read failure of
+ * the normal world storage looks exactly like corruption, and deleting on it destroyed the KeyMint
+ * TA's factory-reset secret, i.e. every key blob, including the key of the encrypted /data. A TA that
+ * really wants to start over can still delete the object itself.
+ */
 static void remove_corrupt_obj(struct user_ta_ctx *utc, struct tee_obj *o)
 {
-	o->pobj->fops->remove(o->pobj);
+	EMSG("Object failed to read; kept (not deleted)");
 	if (!(utc->ta_ctx.flags & TA_FLAG_DONT_CLOSE_HANDLE_ON_CORRUPT_OBJECT))
 		tee_obj_close(utc, o);
 }

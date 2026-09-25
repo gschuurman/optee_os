@@ -477,12 +477,19 @@ out:
 		if (fdp->fd != -1)
 			tee_fs_rpc_close(OPTEE_RPC_CMD_FS, fdp->fd);
 		/*
-		 * Remove the file if hash is NULL and min_counter is 0,
-		 * as it is not yet rollback-protected
+		 * g12b-vim3: only remove a file we failed to create. Upstream also removes an existing
+		 * file that fails to open when it isn't rollback-protected (hash NULL, min_counter 0),
+		 * which is always the case here (no RPMB, no monotonic counter): a single failed read of
+		 * dirf.db then deleted it, the next access silently created an empty one, and all secure
+		 * storage was gone (the KeyMint factory-reset secret, so every key, including the key of
+		 * the encrypted /data). Failing the open instead keeps the data for the next attempt.
 		 */
-		if (create || (!hash && !min_counter)) {
-			DMSG("Remove corrupt file");
+		if (create) {
+			DMSG("Remove file that failed to be created");
 			tee_fs_rpc_remove_dfh(OPTEE_RPC_CMD_FS, dfh);
+		} else {
+			EMSG("Failed to open %s: %#" PRIx32 "; kept (not deleted)",
+			     dfh ? "object file" : "dirf.db", res);
 		}
 		free(fdp);
 	}

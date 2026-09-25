@@ -55,4 +55,10 @@ $(call force,CFG_WITH_ARM_TRUSTED_FW,y)
 $(call force,CFG_AMLOGIC_UART,y)
 
 $(call force,CFG_WITH_PAGER,n)
+# TAs load from the normal world (tee-supplicant, /vendor/lib/optee_armtz), never from secure storage.
+# With the secure-storage TA store enabled, ldelf also looks the TA up in secure storage, and a damaged
+# dirf.db then fails every TA load with TEE_ERROR_CORRUPT_OBJECT -- including the KeyMint TA, which
+# stops keystore2 (and so the whole boot) instead of just reporting the storage error.
+$(call force,CFG_SECSTOR_TA,n)
+$(call force,CFG_SECSTOR_TA_MGMT_PTA,n)
 $(call force,CFG_ARM64_core,y)
